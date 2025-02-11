@@ -28,110 +28,6 @@ func New(httpClient *http.Client) *Service {
 	return service
 }
 
-// GameResponse represents a response from the games API.
-type GameResponse struct {
-	Data []Game `json:"data"`
-}
-
-// Game represents a Roblox game.
-type Game struct {
-	// ID is the game's ID.
-	ID int64 `json:"id"`
-
-	// RootPlaceID is the ID of the game's root place.
-	RootPlaceID int64 `json:"rootPlaceId"`
-
-	// Name is the game's name.
-	Name string `json:"name"`
-
-	// Description is the game's description.
-	Description string `json:"description"`
-
-	// SourceName is the game's source name.
-	SourceName string `json:"sourceName"`
-
-	// SourceDescription is the game's source description.
-	SourceDescription string `json:"sourceDescription"`
-
-	// Creator is the game's creator.
-	Creator Creator `json:"creator"`
-
-	// Price is the game's price.
-	Price *int `json:"price"`
-
-	// AllowedGearGenres is a list of allowed gear genres.
-	AllowedGearGenres []string `json:"allowedGearGenres"`
-
-	// AllowedGearCategories is a list of allowed gear categories.
-	AllowedGearCategories []string `json:"allowedGearCategories"`
-
-	// IsGenreEnforced is whether the genre is enforced.
-	IsGenreEnforced bool `json:"isGenreEnforced"`
-
-	// CopyingAllowed is whether copying is allowed.
-	CopyingAllowed bool `json:"copyingAllowed"`
-
-	// Playing is the number of players playing the game.
-	Playing int `json:"playing"`
-
-	// Visits is the number of visits the game has.
-	Visits int `json:"visits"`
-
-	// MaxPlayers is the maximum number of players allowed in the game.
-	MaxPlayers int `json:"maxPlayers"`
-
-	// Created is the date the game was created.
-	Created string `json:"created"`
-
-	// Updated is the date the game was last updated.
-	Updated string `json:"updated"`
-
-	// StudioAccessToApisAllowed is whether studio access to APIs is allowed.
-	StudioAccessToApisAllowed bool `json:"studioAccessToApisAllowed"`
-
-	// CreateVipServersAllowed is whether creating VIP servers is allowed.
-	CreateVipServersAllowed bool `json:"createVipServersAllowed"`
-
-	// UniverseAvatarType is the universe avatar type.
-	UniverseAvatarType string `json:"universeAvatarType"`
-
-	// Genre is the game's genre.
-	Genre string `json:"genre"`
-
-	// GenreL1 is the game's first genre.
-	GenreL1 string `json:"genre_l1"`
-
-	// GenreL2 is the game's second genre.
-	GenreL2 string `json:"genre_l2"`
-
-	// IsAllGenre is whether the game is all genre.
-	IsAllGenre bool `json:"isAllGenre"`
-
-	// IsFavoritedByUser is whether the game is favorited by the user.
-	IsFavoritedByUser bool `json:"isFavoritedByUser"`
-
-	// FavoritedCount is the number of times the game has been favorited.
-	FavoritedCount int `json:"favoritedCount"`
-}
-
-// Creator represents a game's creator.
-type Creator struct {
-	// ID is the creator's ID.
-	ID int64 `json:"id"`
-
-	// Name is the creator's name.
-	Name string `json:"name"`
-
-	// Type is the creator's type.
-	Type string `json:"type"`
-
-	// IsRNVAccount is whether the creator is an RNV account.
-	IsRNVAccount bool `json:"isRNVAccount"`
-
-	// HasVerifiedBadge is whether the creator has a verified badge.
-	HasVerifiedBadge bool `json:"hasVerifiedBadge"`
-}
-
 // GetUniverseID gets the ID of the universe associated with the given game ID.
 func (s *Service) GetUniverseID(id int64) (int64, error) {
 	resp, err := s.http.Get("https://apis.roblox.com/universes/v1/places/" + strconv.FormatInt(id, 10) + "/universe")
@@ -151,6 +47,7 @@ func (s *Service) GetUniverseID(id int64) (int64, error) {
 }
 
 // Get gets information about a game.
+// Note that you need the Universe ID, not the Game ID.
 func (s *Service) Get(id int64) (*Game, error) {
 	resp, err := s.http.Get("https://games.roblox.com/v1/games?universeIds=" + strconv.FormatInt(id, 10))
 	if err != nil {
@@ -168,4 +65,43 @@ func (s *Service) Get(id int64) (*Game, error) {
 	}
 
 	return &GameResponse.Data[0], nil
+}
+
+// GetRecommended gets a list of recommended games.
+// Note that you need the Universe ID, not the Game ID.
+func (s *Service) GetRecommended(id int64, maxRows int8) ([]RecommendedGame, error) {
+	if maxRows < 1 {
+		return nil, errors.New("maxRows must be greater than 0")
+	} else if maxRows > 6 {
+		return nil, errors.New("maxRows must be less than or equal to 6")
+	}
+
+	resp, err := s.http.Get("https://games.roblox.com/v1/games/recommendations/game/" + strconv.FormatInt(id, 10) + "?maxRows=" + strconv.FormatInt(int64(maxRows), 10))
+	if err != nil {
+		return nil, err
+	}
+
+	var recommendedGames RecommendedGamesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&recommendedGames); err != nil {
+		return nil, err
+	}
+
+	return recommendedGames.Data, nil
+}
+
+// GetMedia gets media associated with a game.
+// Note that you need the Universe ID, not the Game ID.
+func (s *Service) GetMedia(id int64) (*[]GameMedia, error) {
+	resp, err := s.http.Get("https://games.roblox.com/v2/games/" + strconv.FormatInt(id, 10) + "/media")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var media GameMediaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&media); err != nil {
+		return nil, err
+	}
+
+	return &media.Data, nil
 }
